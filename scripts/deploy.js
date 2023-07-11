@@ -6,8 +6,59 @@
 // global scope, and execute the script.
 const hre = require("hardhat");
 
-async function main() {
 
+const tokens = (n) => {
+  return ethers.utils.parseUnits(n.toString(), 'ether')
+}
+
+async function main() {
+ //Setup accounts
+ const [buyer, seller, inspector, lender] = await ethers.getSigners()
+
+ //Deploy RealState Contract
+const RealEstate = await ethers.getContractFactory('RealEstate')
+const realEstate = await RealEstate.deploy()
+await realEstate.deployed()
+
+console.log(`Deployed Real Estate Contract at: ${realEstate.address}`)
+
+console.log("Staring realState min function")
+
+//Minting all the NfT properties
+for(let i = 0; i<3; i++){
+  const transaction = await realEstate.connect(seller).mint(`https://ipfs.io/ipfs/QmQUozrHLAusXDxrvsESJ3PYB3rUeUuBAvVWw6nop2uu7c/${i+1}.png`)
+  await transaction.wait()
+}
+
+console.log("Staring escrow deployment")
+ //Deploy Escrow Contract
+ const Escrow = await ethers.getContractFactory('Escrow')
+ const escrow = await Escrow.deploy(realEstate.address, seller.address, inspector.address, lender.address)
+ await escrow.deployed()
+
+ console.log(`Deployed Real Estate Contract at: ${escrow.address}`)
+
+ console.log("Staring Approve properties")
+ //Approve properties
+ for(let i=0; i <3; i++){
+  let transaction = await realEstate.connect(seller).approve(escrow.address, i+1)
+  await transaction.wait()
+ }
+
+ console.log("Listing Properties..")
+ //Listing Properties...
+ transaction = await escrow.connect(seller).list(1, buyer.address, tokens(20), tokens(10))
+ await transaction.wait()
+
+ console.log("Listing Properties2..")
+ transaction = await escrow.connect(seller).list(2, buyer.address, tokens(20), tokens(10))
+ await transaction.wait()
+
+ console.log("Listing Properties3..")
+ transaction = await escrow.connect(seller).list(3, buyer.address, tokens(20), tokens(10))
+ await transaction.wait()
+
+console.log(`Finished.`)
 }
 
 // We recommend this pattern to be able to use async/await everywhere
